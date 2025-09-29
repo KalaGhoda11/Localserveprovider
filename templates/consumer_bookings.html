@@ -1,0 +1,379 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>My Bookings - LocalServe</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        body { background: #f8f9fa; }
+        .booking-card { background: white; border-radius: 12px; padding: 20px; margin-bottom: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+        .status-badge { padding: 8px 16px; border-radius: 20px; font-size: 0.85rem; font-weight: 600; }
+        .job-timeline { position: relative; padding-left: 30px; margin: 20px 0; }
+        .timeline-step { position: relative; padding-bottom: 20px; }
+        .timeline-step::before { content: ''; position: absolute; left: -22px; top: 5px; width: 12px; height: 12px; border-radius: 50%; background: #e0e0e0; border: 3px solid white; box-shadow: 0 0 0 2px #e0e0e0; }
+        .timeline-step.active::before { background: #28a745; box-shadow: 0 0 0 2px #28a745; }
+        .timeline-step::after { content: ''; position: absolute; left: -17px; top: 17px; width: 2px; height: calc(100% - 12px); background: #e0e0e0; }
+        .timeline-step:last-child::after { display: none; }
+        .chat-box { max-height: 300px; overflow-y: auto; background: #f8f9fa; border-radius: 8px; padding: 15px; margin: 15px 0; }
+        .message { margin-bottom: 10px; padding: 8px 12px; border-radius: 8px; max-width: 70%; }
+        .message.consumer { background: #007bff; color: white; margin-left: auto; }
+        .message.provider { background: #e9ecef; color: #333; }
+    </style>
+</head>
+<body>
+    <nav class="navbar navbar-dark bg-primary sticky-top">
+        <div class="container-fluid">
+            <a class="navbar-brand" href="/"><i class="fas fa-tools"></i> LocalServe</a>
+            <div>
+                <a href="/search" class="btn btn-outline-light btn-sm me-2"><i class="fas fa-search"></i> Search</a>
+                <a href="/" class="btn btn-outline-light btn-sm"><i class="fas fa-home"></i> Home</a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container py-4">
+        <h3 class="mb-4"><i class="fas fa-clipboard-list"></i> My Bookings</h3>
+        
+        <ul class="nav nav-tabs mb-4" id="bookingTabs">
+            <li class="nav-item">
+                <a class="nav-link active" data-bs-toggle="tab" href="#current">Current Jobs</a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link" data-bs-toggle="tab" href="#completed">Completed</a>
+            </li>
+        </ul>
+
+        <div class="tab-content" id="bookingsContent">
+            <div class="tab-pane fade show active" id="current">
+                <div id="currentBookings">
+                    <div class="text-center py-5">
+                        <div class="spinner-border text-primary"></div>
+                        <p class="text-muted mt-2">Loading bookings...</p>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="tab-pane fade" id="completed">
+                <div id="completedBookings"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Chat Modal -->
+    <div class="modal fade" id="chatModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title"><i class="fas fa-comments"></i> Chat with Provider</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div id="chatMessages" class="chat-box"></div>
+                    <div class="input-group">
+                        <input type="text" class="form-control" id="messageInput" placeholder="Type a message...">
+                        <button class="btn btn-primary" onclick="sendMessage()"><i class="fas fa-paper-plane"></i></button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Payment Modal -->
+    <div class="modal fade" id="paymentModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header bg-success text-white">
+                    <h5 class="modal-title"><i class="fas fa-credit-card"></i> Make Payment</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">Amount to Pay</label>
+                        <div class="input-group">
+                            <span class="input-group-text">₹</span>
+                            <input type="number" class="form-control" id="paymentAmount" value="500">
+                        </div>
+                    </div>
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle"></i> Payment will be processed securely
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-success" onclick="processPayment()">
+                        <i class="fas fa-check"></i> Pay Now
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Rating Modal -->
+    <div class="modal fade" id="ratingModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header bg-warning">
+                    <h5 class="modal-title"><i class="fas fa-star"></i> Rate Service</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="text-center mb-3">
+                        <h6 id="ratingProviderName"></h6>
+                        <div id="starRating" class="fs-1 mb-3">
+                            <i class="fas fa-star star-rating" data-rating="1"></i>
+                            <i class="fas fa-star star-rating" data-rating="2"></i>
+                            <i class="fas fa-star star-rating" data-rating="3"></i>
+                            <i class="fas fa-star star-rating" data-rating="4"></i>
+                            <i class="fas fa-star star-rating" data-rating="5"></i>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Write a Review</label>
+                        <textarea class="form-control" id="reviewText" rows="3" placeholder="Share your experience..."></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-warning" onclick="submitRating()">
+                        <i class="fas fa-check"></i> Submit Rating
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        let bookings = [], currentRequestId, selectedRating = 0;
+
+        function loadBookings() {
+            fetch('/api/consumer/my-bookings')
+                .then(r => r.json())
+                .then(data => {
+                    bookings = data;
+                    displayBookings();
+                });
+        }
+
+        function displayBookings() {
+            const current = bookings.filter(b => !b.rating && b.status !== 'rejected');
+            const completed = bookings.filter(b => b.rating || b.job_status === 'completed');
+
+            document.getElementById('currentBookings').innerHTML = current.length ? 
+                current.map(renderBookingCard).join('') : 
+                '<div class="alert alert-info">No active bookings</div>';
+
+            document.getElementById('completedBookings').innerHTML = completed.length ?
+                completed.map(renderCompletedCard).join('') :
+                '<div class="alert alert-info">No completed bookings</div>';
+        }
+
+        function renderBookingCard(b) {
+            const statusMap = {
+                'pending': { color: 'warning', icon: 'clock', text: 'Pending' },
+                'accepted': { color: 'info', icon: 'check-circle', text: 'Accepted' },
+                'in_progress': { color: 'primary', icon: 'spinner', text: 'In Progress' },
+                'completed': { color: 'success', icon: 'check-double', text: 'Completed' }
+            };
+            const status = statusMap[b.job_status || b.status] || statusMap['pending'];
+
+            return `
+                <div class="booking-card">
+                    <div class="d-flex justify-content-between align-items-start mb-3">
+                        <div>
+                            <h5>${b.provider_name}</h5>
+                            <p class="text-muted mb-1">${b.service_type} - ${b.service}</p>
+                            <small class="text-muted">${b.timestamp}</small>
+                        </div>
+                        <span class="status-badge bg-${status.color} text-white">
+                            <i class="fas fa-${status.icon}"></i> ${status.text}
+                        </span>
+                    </div>
+
+                    <div class="job-timeline">
+                        <div class="timeline-step ${b.status === 'accepted' || b.job_status ? 'active' : ''}">
+                            <strong>Accepted</strong>
+                            ${b.accepted_at ? `<small class="text-muted d-block">${b.accepted_at}</small>` : ''}
+                        </div>
+                        <div class="timeline-step ${b.job_status === 'in_progress' || b.job_status === 'completed' ? 'active' : ''}">
+                            <strong>In Progress</strong>
+                        </div>
+                        <div class="timeline-step ${b.job_status === 'completed' ? 'active' : ''}">
+                            <strong>Completed</strong>
+                            ${b.completed_at ? `<small class="text-muted d-block">${b.completed_at}</small>` : ''}
+                        </div>
+                    </div>
+
+                    <div class="d-flex gap-2 mt-3">
+                        ${b.status === 'accepted' ? `
+                            <button class="btn btn-sm btn-primary" onclick="openChat(${b.id})">
+                                <i class="fas fa-comments"></i> Chat
+                            </button>
+                            <button class="btn btn-sm btn-success" onclick="callProvider('${b.provider_details?.phone || ''}')">
+                                <i class="fas fa-phone"></i> Call
+                            </button>
+                        ` : ''}
+                        ${b.job_status === 'completed' && b.payment_status === 'unpaid' ? `
+                            <button class="btn btn-sm btn-success" onclick="openPayment(${b.id})">
+                                <i class="fas fa-credit-card"></i> Pay Now
+                            </button>
+                        ` : ''}
+                        ${b.payment_status === 'paid' && !b.rating ? `
+                            <button class="btn btn-sm btn-warning" onclick="openRating(${b.id}, '${b.provider_name}')">
+                                <i class="fas fa-star"></i> Rate Service
+                            </button>
+                        ` : ''}
+                    </div>
+                </div>
+            `;
+        }
+
+        function renderCompletedCard(b) {
+            return `
+                <div class="booking-card">
+                    <div class="d-flex justify-content-between mb-2">
+                        <div>
+                            <h6>${b.provider_name}</h6>
+                            <small class="text-muted">${b.service_type} - ${b.completed_at}</small>
+                        </div>
+                        <div class="text-end">
+                            <span class="badge bg-success">Completed</span>
+                            ${b.payment_status === 'paid' ? '<br><small class="text-success">Paid ₹' + b.payment_amount + '</small>' : ''}
+                        </div>
+                    </div>
+                    ${b.rating ? `
+                        <div class="mt-2">
+                            <div class="text-warning">${'★'.repeat(b.rating)}${'☆'.repeat(5-b.rating)}</div>
+                            <p class="text-muted small mb-0"><i>"${b.review}"</i></p>
+                        </div>
+                    ` : ''}
+                </div>
+            `;
+        }
+
+        function openChat(requestId) {
+            currentRequestId = requestId;
+            loadMessages();
+            new bootstrap.Modal(document.getElementById('chatModal')).show();
+        }
+
+        function loadMessages() {
+            fetch(`/api/messages/${currentRequestId}`)
+                .then(r => r.json())
+                .then(msgs => {
+                    document.getElementById('chatMessages').innerHTML = msgs.map(m => `
+                        <div class="message ${m.sender}">
+                            <strong>${m.sender === 'consumer' ? 'You' : 'Provider'}:</strong> ${m.message}
+                            <br><small class="text-muted">${m.timestamp}</small>
+                        </div>
+                    `).join('');
+                });
+        }
+
+        function sendMessage() {
+            const input = document.getElementById('messageInput');
+            const message = input.value.trim();
+            if (!message) return;
+
+            fetch('/api/messages/send', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    request_id: currentRequestId,
+                    sender: 'consumer',
+                    message: message
+                })
+            })
+            .then(r => r.json())
+            .then(() => {
+                input.value = '';
+                loadMessages();
+            });
+        }
+
+        function openPayment(requestId) {
+            currentRequestId = requestId;
+            new bootstrap.Modal(document.getElementById('paymentModal')).show();
+        }
+
+        function processPayment() {
+            const amount = document.getElementById('paymentAmount').value;
+            
+            fetch('/api/payment/process', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    request_id: currentRequestId,
+                    amount: amount
+                })
+            })
+            .then(r => r.json())
+            .then(data => {
+                if (data.success) {
+                    bootstrap.Modal.getInstance(document.getElementById('paymentModal')).hide();
+                    alert('Payment successful!');
+                    loadBookings();
+                }
+            });
+        }
+
+        function openRating(requestId, providerName) {
+            currentRequestId = requestId;
+            document.getElementById('ratingProviderName').textContent = providerName;
+            selectedRating = 0;
+            updateStarDisplay();
+            new bootstrap.Modal(document.getElementById('ratingModal')).show();
+        }
+
+        document.querySelectorAll('.star-rating').forEach(star => {
+            star.addEventListener('click', function() {
+                selectedRating = parseInt(this.dataset.rating);
+                updateStarDisplay();
+            });
+        });
+
+        function updateStarDisplay() {
+            document.querySelectorAll('.star-rating').forEach((star, idx) => {
+                star.style.color = idx < selectedRating ? '#ffc107' : '#e0e0e0';
+                star.style.cursor = 'pointer';
+            });
+        }
+
+        function submitRating() {
+            const review = document.getElementById('reviewText').value.trim();
+            
+            if (!selectedRating) {
+                alert('Please select a rating');
+                return;
+            }
+
+            fetch('/api/rating/submit', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    request_id: currentRequestId,
+                    rating: selectedRating,
+                    review: review || 'No review provided'
+                })
+            })
+            .then(r => r.json())
+            .then(data => {
+                if (data.success) {
+                    bootstrap.Modal.getInstance(document.getElementById('ratingModal')).hide();
+                    alert('Thank you for your rating!');
+                    loadBookings();
+                }
+            });
+        }
+
+        function callProvider(phone) {
+            window.location.href = `tel:${phone}`;
+        }
+
+        loadBookings();
+        setInterval(loadBookings, 5000);
+    </script>
+</body>
+</html>
